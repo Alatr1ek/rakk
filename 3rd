@@ -1,0 +1,29 @@
+import requests
+print("Запрос POST: ")
+Base_URL = "https://reqres.in/api/users"
+body = {
+    "First_name" : "Marsel",
+    "Last_name" : "Kamaev",
+    "NoGROUP" : "ISTbd-32",
+    "Model_Phone" : "IPhone",
+    "Model_car" : "bmw"
+}
+header = {
+    'x-api-key' : "reqres_04e790f584de4e2ea36e27726ae866cc"
+}
+respones = requests.post(Base_URL,json = body,headers= header)
+print(respones.json())
+print("Запрос PUT : ")
+print("Введите название машины: ")
+Put_url = "https://reqres.in/api/users/591"
+body_put = {
+    "Model_car" : input()
+}
+
+respones_put = requests.put(Put_url,json = body_put , headers=header)
+print(f"замена машины {respones_put.json()}")
+
+respones_delete = requests.delete(Put_url,headers= header)
+print(respones_delete)
+print("Информация удалена")
+
