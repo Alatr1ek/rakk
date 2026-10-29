@@ -1,0 +1,16 @@
+from http.client import responses
+
+import requests
+
+BASE_URL = "https://api.agify.io/"
+params = {
+    "name" : "Marsel"
+}
+response = requests.get(BASE_URL, params = params)
+if response.status_code == 200:
+    data = response.json()
+
+    print(response.status_code)
+    print(response.json())
+else:
+    print(f'ошибка {response.status_code}: {response.text}' )
