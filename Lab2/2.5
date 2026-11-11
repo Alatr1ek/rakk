@@ -1,0 +1,61 @@
+import paho.mqtt.client as mqtt
+import random, threading, time
+
+BROKER = "broker.hivemq.com"
+PORT = 1883
+P = "lab2/KamaevMarselISTbd32/task5"
+
+TOPICS = {
+    "temp_living":  f"{P}/home/living_room/temperature",
+    "hum_living":   f"{P}/home/living_room/humidity",
+    "temp_kitchen": f"{P}/home/kitchen/temperature",
+    "door":         f"{P}/home/garage/door_status",
+}
+
+def publisher(topic, value_fn, period):
+    c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    c.connect(BROKER, PORT, 60)
+    c.loop_start()
+    try:
+        while True:
+            c.publish(topic, str(value_fn()), qos=1)
+            time.sleep(period)
+    finally:
+        c.loop_stop(); c.disconnect()
+
+threading.Thread(target=publisher,
+                 args=(TOPICS["temp_living"],  lambda: round(random.uniform(18, 26), 1), 4),
+                 daemon=True).start()
+threading.Thread(target=publisher,
+                 args=(TOPICS["hum_living"],   lambda: round(random.uniform(30, 60), 1), 5),
+                 daemon=True).start()
+threading.Thread(target=publisher,
+                 args=(TOPICS["temp_kitchen"], lambda: round(random.uniform(20, 30), 1), 6),
+                 daemon=True).start()
+threading.Thread(target=publisher,
+                 args=(TOPICS["door"],         lambda: random.choice(["OPEN", "CLOSED"]), 10),
+                 daemon=True).start()
+
+
+def make_sub(name, topic_filter):
+    def on_msg(client, userdata, msg):
+        print(f"[{name}] {msg.topic} = {msg.payload.decode()}")
+    c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    c.on_message = on_msg
+    c.connect(BROKER, PORT, 60)
+    c.subscribe(topic_filter, qos=1)
+    c.loop_start()
+    return c
+
+
+s1 = make_sub("LivingRoom",  f"{P}/home/living_room/+")
+
+s2 = make_sub("AllTemps",    f"{P}/home/+/temperature")
+
+s3 = make_sub("Everything",  f"{P}/home/#")
+
+try:
+    time.sleep(60)
+finally:
+    for s in (s1, s2, s3):
+        s.loop_stop(); s.disconnect()
