@@ -1,0 +1,38 @@
+import paho.mqtt.client as mqtt
+import random, time
+
+BROKER = "broker.hivemq.com"
+PORT = 1883
+TOPIC_TEMP   = "lab2/KamaevMarselISTbd32/task4/sensors/temp"
+TOPIC_ALERTS = "lab2/KamaevMarselISTbd32/task4/alerts/temp"
+
+def on_message(client, userdata, msg):
+    payload = msg.payload.decode()
+    if msg.topic == TOPIC_TEMP:
+        temp = float(payload)
+        print(f"[Подписчик] temperature = {temp:.1f} °C")
+        if temp > 80:
+            client.publish(TOPIC_ALERTS, "ALERT: High temperature!", qos=1)
+            print("  >>> отправлен ALERT")
+    else:
+        print(f"[ALERT] {payload}")
+
+sub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+sub.on_message = on_message
+sub.connect(BROKER, PORT, 60)
+sub.subscribe([(TOPIC_TEMP, 1), (TOPIC_ALERTS, 1)])
+sub.loop_start()
+
+pub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+pub.connect(BROKER, PORT, 60)
+pub.loop_start()
+
+try:
+    while True:
+        t = round(random.uniform(0, 100), 1)
+        pub.publish(TOPIC_TEMP, str(t), qos=1)
+        print(f"[Датчик] отправил t = {t}")
+        time.sleep(3)
+finally:
+    pub.loop_stop(); sub.loop_stop()
+    pub.disconnect(); sub.disconnect()
