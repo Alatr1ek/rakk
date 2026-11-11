@@ -1,0 +1,43 @@
+import paho.mqtt.client as mqtt
+import keyboard
+
+BROKER = "broker.hivemq.com"
+PORT = 1883
+TOPIC_BIG = "lab2/KamaevMarselISTbd32/task6/digits_gt5"   # цифры > 5
+TOPIC_SML = "lab2/KamaevMarselISTbd32/task6/digits_lt5"   # цифры < 5
+
+def on_message(client, userdata, msg):
+    print(f"[{msg.topic}] {msg.payload.decode()}")
+
+sub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+sub.on_message = on_message
+sub.connect(BROKER, PORT, 60)
+sub.subscribe([(TOPIC_BIG, 1), (TOPIC_SML, 1)])
+sub.loop_start()
+
+pub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+pub.connect(BROKER, PORT, 60)
+pub.loop_start()
+
+print("Нажимайте цифры (0 — выход).")
+
+try:
+    while True:
+        event = keyboard.read_event()
+        if event.event_type != keyboard.KEY_DOWN:
+            continue
+        key = event.name
+        if key == "0":
+            break
+        if len(key) == 1 and key.isdigit():
+            d = int(key)
+            if d > 5:
+                pub.publish(TOPIC_BIG, key, qos=1)
+                print(f"→ {key} в {TOPIC_BIG}")
+            elif d < 5:
+                pub.publish(TOPIC_SML, key, qos=1)
+                print(f"→ {key} в {TOPIC_SML}")
+
+finally:
+    pub.loop_stop(); sub.loop_stop()
+    pub.disconnect(); sub.disconnect()
