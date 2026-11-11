@@ -1,0 +1,68 @@
+import paho.mqtt.client as mqtt
+import requests
+import json
+import time
+
+BROKER = "broker.hivemq.com"
+PORT = 1883
+BASE_TOPIC = "lab2/KamaevMarselIST32/task10/users"
+
+API_KEY = "reqres_04e790f584de4e2ea36e27726ae866cc" 
+URL = "https://reqres.in/api/users?page=1"
+
+def on_message(client, userdata, msg):
+    user = json.loads(msg.payload.decode())
+    print(f"--- Получены данные из топика: {msg.topic} ---")
+    print(f"ID:     {user['id']}")
+    print(f"Имя:    {user['first_name']} {user['last_name']}")
+    print(f"Email:  {user['email']}")
+    print(f"Аватар: {user['avatar']}\n")
+
+sub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+sub.on_message = on_message
+sub.connect(BROKER, PORT, 60)
+sub.subscribe(f"{BASE_TOPIC}/#", qos=1) 
+sub.loop_start()
+
+pub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+pub.connect(BROKER, PORT, 60)
+pub.loop_start()
+
+time.sleep(1)
+
+headers = {
+    "x-api-key": API_KEY
+}
+
+print("Запрашиваем данные с reqres.in...")
+response = requests.get(URL, headers=headers)
+
+if response.status_code == 200:
+    data = response.json()
+    users = data.get("data", [])
+    
+    print(f"Успешно получено {len(users)} пользователей. Публикуем в MQTT...\n")
+    
+    for user in users:
+        topic = f"{BASE_TOPIC}/{user['id']}"
+        
+        payload = json.dumps({
+            "id": user["id"],
+            "first_name": user["first_name"],
+            "last_name": user["last_name"],
+            "email": user["email"],
+            "avatar": user["avatar"]
+        }, ensure_ascii=False)
+        
+        pub.publish(topic, payload, qos=1)
+        print(f"Опубликовано в {topic}")
+else:
+    print(f"Ошибка запроса: {response.status_code}")
+    print(response.text)
+
+time.sleep(3)
+
+pub.loop_stop()
+sub.loop_stop()
+pub.disconnect()
+sub.disconnect()
