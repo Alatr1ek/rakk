@@ -1,0 +1,41 @@
+import paho.mqtt.client as mqtt
+import time
+
+BROKER = "broker.hivemq.com"
+PORT = 1883
+TOPIC_IN  = "lab2/KamaevMarselIST32/task2/echo/in"
+TOPIC_OUT = "lab2/KamaevMarselIST32/task2/echo/out"
+
+def sub_on_message(client, userdata, msg):
+    text = msg.payload.decode()
+    print(f"[Subscriber] получил из {msg.topic}: {text}")
+    out = f"ECHO: {text}"
+    client.publish(TOPIC_OUT, out, qos=1)
+    print(f"[Subscriber] отправил в {TOPIC_OUT}: {out}")
+
+sub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+sub.on_message = sub_on_message
+sub.connect(BROKER, PORT, 60)
+sub.subscribe(TOPIC_IN, qos=1)
+sub.loop_start()
+
+
+def pub_on_message(client, userdata, msg):
+    print(f"[Publisher] получил из {msg.topic}: {msg.payload.decode()}")
+
+pub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+pub.on_message = pub_on_message
+pub.connect(BROKER, PORT, 60)
+pub.subscribe(TOPIC_OUT, qos=1)
+pub.loop_start()
+
+try:
+    while True:
+        text = input("Publisher, введите сообщение (exit — выход): ")
+        if text.lower() == "exit":
+            break
+        pub.publish(TOPIC_IN, text, qos=1)
+        time.sleep(1)
+finally:
+    sub.loop_stop(); pub.loop_stop()
+    sub.disconnect(); pub.disconnect()
