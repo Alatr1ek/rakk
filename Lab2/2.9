@@ -1,0 +1,54 @@
+import paho.mqtt.client as mqtt
+import requests, json, time
+
+BROKER = "broker.hivemq.com"
+PORT = 1883
+URL = ("https://api.worldbank.org/v2/country/bra;arg/indicator/"
+       "NY.GDP.MKTP.CD?format=json&date=2010:2020&per_page=100")
+
+TOPIC_BRA = "lab2/KamaevMarselIST32/task9/gdp/brazil"
+TOPIC_ARG = "lab2/KamaevMarselIST32/task9/gdp/argentina"
+
+
+resp = requests.get(URL, timeout=30)
+resp.raise_for_status()
+data = resp.json()[1]
+
+gdp = {"brazil": {}, "argentina": {}}
+for item in data:
+    country = item["country"]["value"].lower()
+    year = item["date"]
+    value = item["value"]
+    if country in gdp:
+        gdp[country][year] = value
+
+print("Brazil GDP:", gdp["brazil"])
+print("Argentina GDP:", gdp["argentina"])
+
+
+def on_message(client, userdata, msg):
+    obj = json.loads(msg.payload.decode())
+    country = msg.topic.rsplit("/", 1)[-1].capitalize()
+    print(f"\n=== ВВП {country} ===")
+    for year in sorted(obj):
+        val = obj[year]
+        print(f"  {year}: {val/1e9:.2f} млрд USD" if val else f"  {year}: нет данных")
+
+sub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+sub.on_message = on_message
+sub.connect(BROKER, PORT, 60)
+sub.subscribe([(TOPIC_BRA, 1), (TOPIC_ARG, 1)])
+sub.loop_start()
+
+
+pub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+pub.connect(BROKER, PORT, 60)
+pub.loop_start()
+
+time.sleep(1)
+pub.publish(TOPIC_BRA, json.dumps(gdp["brazil"]), qos=1)
+pub.publish(TOPIC_ARG, json.dumps(gdp["argentina"]), qos=1)
+
+time.sleep(10)
+pub.loop_stop(); sub.loop_stop()
+pub.disconnect(); sub.disconnect()
