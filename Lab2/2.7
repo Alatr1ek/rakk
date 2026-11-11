@@ -1,0 +1,43 @@
+import paho.mqtt.client as mqtt
+import base64, os, time
+
+BROKER = "broker.hivemq.com"
+PORT = 1883
+TOPIC = "lab2/KamaevMarselISTbd32/task7/files/image"
+
+SRC = "9db02900422ebd23cbfc87ef557e34b8.png"
+DST = "output.png"
+
+
+def on_message(client, userdata, msg):
+    encoded = msg.payload.decode('ascii')
+    data = base64.b64decode(encoded)
+    with open(DST, "wb") as f:
+        f.write(data)
+    print(f"[Subscriber] файл сохранён: {DST} ({len(data)} байт)")
+
+sub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+sub.on_message = on_message
+sub.connect(BROKER, PORT, 60)
+sub.subscribe(TOPIC, qos=1)
+sub.loop_start()
+
+
+pub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+pub.connect(BROKER, PORT, 60)
+pub.loop_start()
+
+time.sleep(1)
+
+with open(SRC, "rb") as f:
+    file_data = f.read()
+
+encoded = base64.b64encode(file_data).decode('ascii')
+print(f"[Publisher] файл {SRC}: {len(file_data)} байт, base64: {len(encoded)} символов")
+
+
+pub.publish(TOPIC, encoded, qos=1)
+
+time.sleep(5)
+pub.loop_stop(); sub.loop_stop()
+pub.disconnect(); sub.disconnect()
