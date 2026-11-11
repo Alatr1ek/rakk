@@ -1,0 +1,42 @@
+import paho.mqtt.client as mqtt
+import psutil, json, time
+
+BROKER = "broker.hivemq.com"
+PORT = 1883
+TOPIC = "lab2/KamaevMarselISTbd32/task3/system/monitor"
+
+def on_message(client, userdata, msg):
+    data = json.loads(msg.payload.decode())
+    print("=== Данные мониторинга ===")
+    print(f"CPU:    {data['cpu_percent']} %")
+    print(f"RAM:    {data['memory']['percent']} %  "
+          f"({data['memory']['used']/1024**3:.2f}/{data['memory']['total']/1024**3:.2f} GB)")
+    print(f"Disk /: {data['disk']['percent']} %  "
+          f"({data['disk']['used']/1024**3:.2f}/{data['disk']['total']/1024**3:.2f} GB)")
+    print()
+
+sub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+sub.on_message = on_message
+sub.connect(BROKER, PORT, 60)
+sub.subscribe(TOPIC, qos=1)
+sub.loop_start()
+
+pub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+pub.connect(BROKER, PORT, 60)
+pub.loop_start()
+
+try:
+    while True:
+        vm   = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        data = {
+            "cpu_percent": psutil.cpu_percent(interval=1),
+            "memory": {"percent": vm.percent, "total": vm.total, "used": vm.used},
+            "disk":   {"percent": disk.percent, "total": disk.total, "used": disk.used}
+        }
+        pub.publish(TOPIC, json.dumps(data), qos=1)
+        print("Опубликовано:", data)
+        time.sleep(5)
+finally:
+    pub.loop_stop(); sub.loop_stop()
+    pub.disconnect(); sub.disconnect()
